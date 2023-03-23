@@ -11,5 +11,6 @@ else
     TIME=`date '+%Y-%m-%d %H:%M:%S'`
     cp ${HOME}/.config/clash/config.yaml "${HOME}/.config/clash/config.yaml.bak${TIME}"
     curl -L -o ${HOME}/.config/clash/config.yaml ${CLASH_URL}
+    find ${HOME}/.config/clash -mmin +3 -name 'config.yaml.bak*' -exec rm -rf {} \;
     /usr/bin/clash
 fi
