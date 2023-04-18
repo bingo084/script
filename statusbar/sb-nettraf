@@ -23,27 +23,32 @@ RX=$(update /sys/class/net/[ew]*/statistics/rx_bytes)
 TX=$(update /sys/class/net/[ew]*/statistics/tx_bytes)
 
 # 换算单位
-if [[ $RX -lt 1024 ]];then
-    # 如果接收速率小于1024,则单位为B/s
-    RX="${RX}B/s"
-elif [[ $RX -gt 1048576 ]];then
-    # 否则如果接收速率大于 1048576,则改变单位为MB/s
-    RX=$(echo $RX | awk '{print $1/1048576 "MB/s"}')
+if [[ $RX -lt 102400 ]];then
+    # 如果接收速率小于100KB/s，忽略输出
+    RX=""
+elif [[ $RX -lt 1048576 ]];then
+    # 否则如果接收速率大于等于100KB/s并且小于1MB/s，则单位为KB/s
+    RX=$(echo $RX | awk '{printf "%.2f", $1/1024} END {print "KB/s"}') 
 else
-    # 否则如果接收速率大于1024但小于1048576,则单位为KB/s
-    RX=$(echo $RX | awk '{print $1/1024 "KB/s"}')
+    # 否则如果接收速率大于等于1MB/s，则单位为MB/s
+    RX=$(echo $RX | awk '{printf "%.2f", $1/1048576} END {print "MB/s"}') 
 fi
 
 # 换算单位
-if [[ $TX -lt 1024 ]];then
-    # 如果发送速率小于1024,则单位为B/s
-    TX="${TX}B/s"
-elif [[ $TX -gt 1048576 ]];then
-    # 否则如果发送速率大于 1048576,则改变单位为MB/s
-    TX=$(echo $TX | awk '{print $1/1048576 "MB/s"}')
+if [[ $TX -lt 102400 ]];then
+    # 如果发送速率小于100KB/s，忽略输出
+    TX=""
+elif [[ $TX -lt 1048576 ]];then
+    # 否则如果发送速率大于等于100KB/s并且小于1MB/s，则单位为KB/s
+    TX=$(echo $TX | awk '{printf "%.2f", $1/1024} END {print "KB/s"}') 
 else
-    # 否则如果发送速率大于1024但小于1048576,则单位为KB/s
-    TX=$(echo $TX | awk '{print $1/1024 "KB/s"}')
+    # 否则如果发送速率大于等于1MB/s，则单位为MB/s
+    TX=$(echo $TX | awk '{printf "%.2f", $1/1048576} END {print "MB/s"}') 
 fi
 
-printf "🔼:$TX 🔽:$RX"
+if [[ ! -z $RX ]];then
+    printf "🔽:%7s" $RX
+fi
+if [[ ! -z $TX ]];then
+    printf "🔼:%7s" $TX
+fi
