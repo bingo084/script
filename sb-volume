@@ -17,7 +17,7 @@ esac
 STATUS=$(amixer get Master | awk -F"[][]" '/dB/ { print $6 }')
 VOL=$(amixer get Master | awk -F"[][]" '/dB/ { print $2 }' | sed "s/%//")
 
-if [ "$STATUS" == on ]; then
+if [ "$STATUS" == off ]; then
     printf "🔇:%s%%" "$VOL"
     return
 fi
