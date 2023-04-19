@@ -9,4 +9,4 @@ case $BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
-top -b -n1 | grep "%Cpu(s)" | awk '{printf "🖥%.2f%%\n", 100-$8}'
+top -b -n1 | grep "%Cpu(s)" | awk '{printf "🧠%.0f%%\n", 100-$8}'

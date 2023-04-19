@@ -9,4 +9,4 @@ case $BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
-free | awk 'NR==2{printf "🧠%.2f%%\n", $3/$2*100}'
+free | awk 'NR==2{printf "%.0f%%\n", $3/$2*100}'
