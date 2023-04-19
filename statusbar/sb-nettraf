@@ -47,8 +47,8 @@ else
 fi
 
 if [[ ! -z $RX ]];then
-    printf "🔽:%7s" $RX
+    printf " 🔽:%7s" $RX
 fi
 if [[ ! -z $TX ]];then
-    printf "🔼:%7s" $TX
+    printf " 🔼:%7s" $TX
 fi
