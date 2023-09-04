@@ -1,33 +1,73 @@
 #!/bin/bash
 
-# This script will randomly go through the files of a directory, setting it
-# up as the wallpaper at regular intervals
-#
-# NOTE: this script is in bash (not posix shell), because the RANDOM variable
-# we use is not defined in posix
+# 定义存储进程ID的临时文件路径
+pid_file="/tmp/swww_randomize.pid"
 
-if [[ $# -lt 1 ]] || [[ ! -d $1 ]]; then
-	echo "Usage:
-	$0 <dir containing images>"
+# 函数用于清理工作并删除PID文件
+cleanup() {
+	# 删除PID文件
+	[[ -f "$pid_file" ]] && rm "$pid_file"
+	exit
+}
+
+# 注册trap来在脚本退出时执行cleanup函数
+trap cleanup EXIT
+
+# 检查是否有已经运行的相同脚本实例，并尝试终止它
+if [[ -f "$pid_file" ]]; then
+	old_pid=$(cat "$pid_file")
+	if [[ -n "$old_pid" ]] && ps -p "$old_pid" -o comm= | grep -q "$(basename "$0")"; then
+		echo "Terminating existing instance of this script (PID: $old_pid)..."
+		kill -SIGTERM "$old_pid"
+		sleep 2 # 可以适当增加延迟以确保进程终止
+	fi
+fi
+# 将当前脚本的进程ID写入临时文件
+echo "$$" >"$pid_file"
+
+# 指定图片文件夹的路径
+image_folder="$1"
+
+# 指定壁纸切换的间隔时间（秒）
+interval="$2"
+
+# 检查参数是否合法
+if [[ $# -ne 2 ]]; then
+	echo "Usage: $0 <image_folder> <interval_seconds>"
+	exit 1
+fi
+if [[ ! -d "$image_folder" ]]; then
+	echo "The specified image folder '$image_folder' does not exist"
 	exit 1
 fi
 
-# Edit below to control the images transition
+# 图片切换参数
 export SWWW_TRANSITION=any
 export SWWW_TRANSITION_STEP=90
 export SWWW_TRANSITION_FPS=60
 
-# This controls (in seconds) when to switch to the next image
-INTERVAL=300
-
+# 主循环，不断随机选择图片并设置为壁纸
 while true; do
-	find "$1" |
-		while read -r img; do
-			echo "$((RANDOM % 1000)):$img"
-		done |
-		sort -n | cut -d':' -f2- |
-		while read -r img; do
-			swww img "$img"
-			sleep $INTERVAL
-		done
+	if ! swww query >/dev/null; then
+		exit 1
+	fi
+
+	# 使用 find 命令列出文件夹中的所有图片文件
+	image_files=($(find "$image_folder" -type f -iregex '.*\.\(jpg\|jpeg\|png\|gif\|bmp\)$'))
+
+	# 检查是否存在图片文件
+	if [[ ${#image_files[@]} -eq 0 ]]; then
+		echo "No image files found in '$image_folder'"
+		exit 1
+	fi
+
+	# 随机选择一张图片
+	random_index=$((RANDOM % ${#image_files[@]}))
+	selected_image="${image_files[random_index]}"
+
+	# 使用 swww img 命令设置图片为壁纸
+	swww img "$selected_image"
+
+	# 等待指定的间隔时间
+	sleep "$interval"
 done
