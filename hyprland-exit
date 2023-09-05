@@ -1,0 +1,5 @@
+#!/bin/bash
+
+pkill -x swww-randomize
+pkill -x xremap
+hyprctl dispatch exit
