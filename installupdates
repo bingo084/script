@@ -1,0 +1,57 @@
+#!/bin/bash
+sleep 1
+
+echo "-----------------------------------------------------"
+echo "Check for updates"
+echo "-----------------------------------------------------"
+echo ""
+
+if ! updates_arch=$(checkupdates 2> /dev/null | wc -l ); then
+    updates_arch=0
+fi
+
+if ! updates_aur=$(paru -Qua | wc -l); then
+    updates_aur=0
+fi
+
+updates=$(("$updates_arch" + "$updates_aur"))
+
+if [ "$updates" -gt 0 ]; then
+
+    echo "-> Pacman:"
+    checkupdates
+    echo ""
+    echo "-> AUR"
+    paru -Su --aur
+    echo ""
+    echo "-> $updates updates available."
+    echo ""
+else
+    echo "-> NO updates available"
+    exit
+fi
+
+# Confirm Start
+while true; do
+    read -p "DO YOU WANT TO START THE UPDATE NOW? (Y/n): " yn
+    if [ -z "$yn" ]; then
+        yn="Y"
+    fi
+    case $yn in
+        [Yy]* )
+            echo "Update process started."
+        break;;
+        [Nn]* ) 
+            exit;
+        break;;
+        * ) echo "Please enter y or n.";;
+    esac
+done
+
+echo "-----------------------------------------------------"
+echo "Start update"
+echo "-----------------------------------------------------"
+echo ""
+
+paru
+pkill -SIGRTMIN+8 waybar
