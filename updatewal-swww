@@ -37,7 +37,7 @@ while true; do
 
 	# Change wallpaper
 	swww img $wallpaper
-	# ~/.config/waybar/launch.sh
+    killall -SIGUSR2 waybar
 
 	# Send notification
 	notify-send "Theme and Wallpaper updated" "With image $newwall"
