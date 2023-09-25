@@ -22,7 +22,7 @@ export SWWW_TRANSITION_FPS=60
 
 while true; do
 	# Select random wallpaper and create color scheme
-	wal -q --backend colorz -i ~/Pictures/wallpapers
+	wal -qst --backend colorz -i ~/Pictures/wallpapers
 
 	# Load current pywal color scheme
 	source "$HOME/.cache/wal/colors.sh"
