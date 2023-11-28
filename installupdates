@@ -33,7 +33,7 @@ fi
 
 # Confirm Start
 while true; do
-    read -p "DO YOU WANT TO START THE UPDATE NOW? (Y/n): " yn
+    read -p "Do you want to start the update now? (Y/n): " yn
     if [ -z "$yn" ]; then
         yn="Y"
     fi
@@ -54,4 +54,5 @@ echo "-----------------------------------------------------"
 echo ""
 
 paru
+read -p "Press enter to exit..."
 pkill -SIGRTMIN+8 waybar
