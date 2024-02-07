@@ -26,7 +26,7 @@ fi
 updates_count=$(("$pacman_updates_count" + "$updates_aur"))
 updates=""
 if [ "$pacman_updates_count" -gt 0 ]; then
-	updates+=$(checkupdates)
+	updates+=$(checkupdates --nocolor)
 fi
 
 # Testing
