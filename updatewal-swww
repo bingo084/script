@@ -27,9 +27,6 @@ while true; do
 	# Load current pywal color scheme
 	source "$HOME/.cache/wal/colors.sh"
 
-	# Get wallpaper iamge name
-	newwall=$(echo $wallpaper | sed "s|$HOME/wallpaper/||g")
-
 	# Check swww is running
 	if ! swww query >/dev/null; then
 		exit 1
@@ -37,10 +34,7 @@ while true; do
 
 	# Change wallpaper
 	swww img $wallpaper
-    killall -SIGUSR2 waybar
-
-	# Send notification
-	notify-send "Theme and Wallpaper updated" "With image $newwall"
+  killall -SIGUSR2 waybar
 
 	# wait time
 	sleep "$interval"
