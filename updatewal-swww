@@ -34,7 +34,6 @@ while true; do
 
 	# Change wallpaper
 	swww img $wallpaper
-  killall -SIGUSR2 waybar
 
 	# wait time
 	sleep "$interval"
