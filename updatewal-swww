@@ -27,6 +27,14 @@ while true; do
 	# Load current pywal color scheme
 	source "$HOME/.cache/wal/colors.sh"
 
+	# update dunst
+	dunstrc="$HOME/.config/dunst/dunstrc"
+	dunstrc_old="$HOME/.config/dunst/dunstrc.old"
+	cp $dunstrc $dunstrc_old
+	sed -i "/@color11/{s//$color11/g}" $dunstrc
+	systemctl --user restart dunst
+	mv -f $dunstrc_old $dunstrc
+
 	# Check swww is running
 	if ! swww query >/dev/null; then
 		exit 1
