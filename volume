@@ -1,0 +1,20 @@
+#!/bin/bash
+if [[ "$1" == "toggle" ]]; then
+	pactl set-sink-mute @DEFAULT_SINK@ $1
+else
+	volume=$(pactl get-sink-volume @DEFAULT_SINK@ | awk -F '[/ ]+' '{print $4}' | tr -d '%')
+	if [[ "$1" == *-* || "$volume" -lt 100 ]]; then
+		pactl set-sink-volume @DEFAULT_SINK@ $@
+	fi
+fi
+volume=$(pactl get-sink-volume @DEFAULT_SINK@ | awk -F '[/ ]+' '{print $4}')
+mute=$(pactl get-sink-mute @DEFAULT_SINK@ | awk '{print $2}')
+if [[ "$mute" = "yes" ]]; then
+	icon=""
+else
+	icon=""
+fi
+notify-send \
+	-e -h string:x-canonical-private-synchronous:osd \
+	"$icon $volume" \
+	-h int:value:"$volume"
