@@ -1,5 +1,5 @@
 #!/bin/bash
 
-pkill -x updatewal-swww
+pkill -x updatewal
 pkill -x xremap
 hyprctl dispatch exit
