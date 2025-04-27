@@ -10,4 +10,4 @@ if [[ ! "$1" =~ ^(output|window|region|active|.+)$ ]]; then
 fi
 
 # Execute screenshot command with annotation
-hyprshot -z --raw -m "$1" | satty --filename -
+sleep 0.05 && hyprshot -z --raw -m "$1" | satty --filename -
