@@ -5,9 +5,21 @@
 
 # Validate input parameter
 if [[ ! "$1" =~ ^(output|window|region|active|.+)$ ]]; then
-    echo "Error: Invalid mode. Must be one of: output, window, region, active, OUTPUT_NAME" >&2
-    exit 1
+  echo "Error: Invalid mode. Must be one of: output, window, region, active, OUTPUT_NAME" >&2
+  exit 1
 fi
 
-# Execute screenshot command with annotation
-sleep 0.05 && hyprshot -z --raw -m "$1" | satty --filename -
+tempfile=$(mktemp --suffix=.png)
+tempdir=$(dirname "$tempfile")
+tempname=$(basename "$tempfile")
+
+# Take a screenshot using hyprshot
+hyprshot -z -s -o "$tempdir" -f "$tempname" -m "$1"
+
+sleep 0.05
+
+# Use satty to annotate the screenshot
+satty --filename "$tempfile"
+
+# Clean up temporary file
+rm -f "$tempfile"
