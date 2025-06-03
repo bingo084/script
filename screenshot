@@ -9,17 +9,4 @@ if [[ ! "$1" =~ ^(output|window|region|active|.+)$ ]]; then
   exit 1
 fi
 
-tempfile=$(mktemp --suffix=.png)
-tempdir=$(dirname "$tempfile")
-tempname=$(basename "$tempfile")
-
-# Take a screenshot using hyprshot
-hyprshot -z -s -o "$tempdir" -f "$tempname" -m "$1"
-
-sleep 0.05
-
-# Use satty to annotate the screenshot
-satty --filename "$tempfile"
-
-# Clean up temporary file
-rm -f "$tempfile"
+hyprshot -z --clipboard-only -s -m "$1"; sleep 0.01s && wl-paste | satty --filename -
