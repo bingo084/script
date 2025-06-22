@@ -1,9 +1,11 @@
 #!/bin/bash
 
-window_class=$(hyprctl activewindow -j | jq -r .class)
+active_window=$(hyprctl activewindow -j)
+active_class=$(echo $active_window | jq -r .class)
+active_pid=$(echo $active_window | jq -r .pid)
 
-if [[ "$window_class" == "kitty" ]]; then
-	wtype -M win -k v -m win
+if [[ "$active_class" == "kitty" ]]; then
+  kitten @ --to "unix:@mykitty-$active_pid" action paste_from_clipboard
 else
 	wtype -M ctrl -k v -m ctrl
 fi
