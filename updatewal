@@ -5,4 +5,4 @@ image_path="$HOME/.cache/wallpaper.jpg"
 # Download wallpaper
 curl -sL --connect-timeout 10 -m 30 -o "$image_path" "$image_url"
 
-matugen image $image_path
+matugen image $image_path --source-color-index 0
