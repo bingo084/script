@@ -9,4 +9,12 @@ if [[ ! "$1" =~ ^(output|window|region|active|.+)$ ]]; then
   exit 1
 fi
 
-hyprshot -z --clipboard-only -s -m "$1"; sleep 0.01s && wl-paste | satty --filename -
+prev_clipboard_hash=$(wl-paste | sha1sum)
+
+hyprshot -z --clipboard-only -s -m "$1"
+
+while [ "$(wl-paste | sha1sum)" = "$prev_clipboard_hash" ]; do
+  sleep 0.01
+done
+
+wl-paste | satty --filename -
