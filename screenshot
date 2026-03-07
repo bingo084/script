@@ -3,15 +3,11 @@
 # screenshot - Wrapper script for hyprshot with satty annotation
 # Usage: rcreenshot [output|window|region|active|OUTPUT_NAME]
 
-# Validate input parameter
-if [[ ! "$1" =~ ^(output|window|region|active|.+)$ ]]; then
-  echo "Error: Invalid mode. Must be one of: output, window, region, active, OUTPUT_NAME" >&2
-  exit 1
-fi
+mode="${1:-region}"
 
 prev_clipboard_hash=$(wl-paste | sha1sum)
 
-hyprshot -z --clipboard-only -s -m "$1"
+hyprshot -z --clipboard-only -s -m "$mode"
 
 while [ "$(wl-paste | sha1sum)" = "$prev_clipboard_hash" ]; do
   sleep 0.01
