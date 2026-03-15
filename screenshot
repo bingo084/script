@@ -1,16 +1,44 @@
 #!/usr/bin/env bash
 
-# screenshot - Wrapper script for hyprshot with satty annotation
-# Usage: rcreenshot [output|window|region|active|OUTPUT_NAME]
+# screenshot - Cross-desktop screenshot with satty annotation
+# Usage: screenshot [output|window|region|active]
 
 mode="${1:-region}"
+annotate=false
 
-prev_clipboard_hash=$(wl-paste | sha1sum)
+case "$mode" in
+  region) annotate=true ;;
+esac
 
-hyprshot -z --clipboard-only -s -m "$mode"
+prev_clipboard_hash=$(wl-paste 2>/dev/null | sha1sum)
 
-while [ "$(wl-paste | sha1sum)" = "$prev_clipboard_hash" ]; do
-  sleep 0.01
-done
+if [ "$XDG_SESSION_DESKTOP" = "hyprland" ]; then
+  hyprshot -z --clipboard-only -s -m "$mode"
+elif [ "$XDG_SESSION_DESKTOP" = "niri" ]; then
+  case "$mode" in
+    output)  niri msg action screenshot-screen ;;
+    window)
+      wid=$(niri msg --json pick-window | jq .id)
+      [ -n "$wid" ] && [ "$wid" != "null" ] && niri msg action screenshot-window --id "$wid"
+      ;;
+    active)  niri msg action screenshot-window ;;
+    region)  niri msg action screenshot ;;
+    *)       niri msg action screenshot ;;
+  esac
+else
+  echo "Unsupported desktop: $XDG_SESSION_DESKTOP" >&2
+  exit 1
+fi
 
-wl-paste | satty --filename -
+if [ "$annotate" = true ]; then
+  # 等待截图完成（剪贴板内容变化）
+  tries=0
+  while [ "$(wl-paste 2>/dev/null | sha1sum)" = "$prev_clipboard_hash" ]; do
+    sleep 0.05
+    tries=$((tries + 1))
+    if [ "$tries" -ge 100 ]; then
+      exit 0
+    fi
+  done
+  wl-paste | satty --filename -
+fi
