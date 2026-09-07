@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -eu
+
+config="$HOME/.config/mihomo/config.yaml"
+source_dir="$(chezmoi source-path)"
+activate_script="$source_dir/.chezmoiscripts/run_onchange_after_mihomo_config.sh.tmpl"
+
+echo ":: refreshing mihomo config external..."
+chezmoi apply --refresh-externals=always "$config"
+
+echo ":: activating mihomo config..."
+chezmoi apply --source-path "$activate_script"
