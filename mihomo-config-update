@@ -2,12 +2,18 @@
 
 set -eu
 
-config="$HOME/.config/mihomo/config.yaml"
+repo="$HOME/.config/mihomo"
 source_dir="$(chezmoi source-path)"
 activate_script="$source_dir/.chezmoiscripts/run_onchange_after_mihomo_config.sh.tmpl"
 
-echo ":: refreshing mihomo config external..."
-chezmoi apply --refresh-externals=always "$config"
+if [ -d "$repo/.git" ] &&
+  { ! git -C "$repo" diff --quiet ||
+    ! git -C "$repo" diff --cached --quiet; }; then
+  echo ":: local mihomo config changes detected, skipping remote refresh..."
+else
+  echo ":: refreshing mihomo config external..."
+  chezmoi apply --refresh-externals=always "$repo"
+fi
 
 echo ":: activating mihomo config..."
-chezmoi apply --source-path "$activate_script"
+chezmoi apply --refresh-externals=never --source-path "$activate_script"
