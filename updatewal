@@ -1,8 +1,39 @@
 #!/bin/bash
-image_url="https://bing.biturl.top/?resolution=3840&format=image&index=random&mkt=random"
+set -euo pipefail
+
+api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9"
 image_path="$HOME/.cache/wallpaper.jpg"
 
-# Download wallpaper
-curl -sL --connect-timeout 10 -m 30 -o "$image_path" "$image_url"
+fetch() {
+    curl -fLsS --connect-timeout 5 --max-time 60 --retry 2 "$@"
+}
+
+# Pick an image uniformly across all results, then calculate its page and position.
+response=$(fetch "$api_url")
+total=$(jq -er '.meta.total | numbers | select(. > 0)' <<< "$response")
+per_page=$(jq -er '.meta.per_page | numbers | select(. > 0)' <<< "$response")
+index=$(shuf -i "0-$((total - 1))" -n 1)
+page=$((index / per_page + 1))
+if ((page > 1)); then
+    response=$(fetch "${api_url}&page=$page")
+fi
+image_url=$(jq -er --argjson index "$((index % per_page))" \
+    '.data[$index].path | strings | select(startswith("https://"))' <<< "$response")
+echo "updatewal: page $page, $image_url"
+
+# Never overwrite the current image until the entire download has been decoded.
+mkdir -p -- "${image_path%/*}"
+tmp_image=$(mktemp "${image_path}.XXXXXX")
+trap 'rm -f -- "$tmp_image"' EXIT
+trap 'exit 1' HUP INT TERM
+fetch --output "$tmp_image" "$image_url"
+
+if ! image_errors=$(magick "$tmp_image" null: 2>&1) || [[ -n "$image_errors" ]]; then
+    printf '%s\n' "$image_errors" >&2
+    echo "updatewal: incomplete or invalid image; keeping current wallpaper" >&2
+    exit 1
+fi
+
+mv -f -- "$tmp_image" "$image_path"
 
 matugen image "$image_path" --source-color-index 0 -m light
