@@ -6,7 +6,7 @@ if [[ "$(systemctl --user show update-wallpaper.service -p MainPID --value)" != 
     exit 1
 fi
 
-api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9&q=-%22video%20games%22"
+api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9&q=-%22video%20games%22%20-%22digital%20art%22"
 wallpaper_dir="$HOME/Pictures/wallpapers"
 image_path="$HOME/.cache/wallpaper.jpg"
 info_path="${image_path%/*}/wallpaper.json"
