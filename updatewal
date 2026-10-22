@@ -1,39 +1,101 @@
 #!/bin/bash
 set -euo pipefail
 
-api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9"
-image_path="$HOME/.cache/wallpaper.jpg"
-
-fetch() {
-    curl -fLsS --connect-timeout 5 --max-time 60 --retry 2 "$@"
-}
-
-# Pick an image uniformly across all results, then calculate its page and position.
-response=$(fetch "$api_url")
-total=$(jq -er '.meta.total | numbers | select(. > 0)' <<< "$response")
-per_page=$(jq -er '.meta.per_page | numbers | select(. > 0)' <<< "$response")
-index=$(shuf -i "0-$((total - 1))" -n 1)
-page=$((index / per_page + 1))
-if ((page > 1)); then
-    response=$(fetch "${api_url}&page=$page")
-fi
-image_url=$(jq -er --argjson index "$((index % per_page))" \
-    '.data[$index].path | strings | select(startswith("https://"))' <<< "$response")
-echo "updatewal: page $page, $image_url"
-
-# Never overwrite the current image until the entire download has been decoded.
-mkdir -p -- "${image_path%/*}"
-tmp_image=$(mktemp "${image_path}.XXXXXX")
-trap 'rm -f -- "$tmp_image"' EXIT
-trap 'exit 1' HUP INT TERM
-fetch --output "$tmp_image" "$image_url"
-
-if ! image_errors=$(magick "$tmp_image" null: 2>&1) || [[ -n "$image_errors" ]]; then
-    printf '%s\n' "$image_errors" >&2
-    echo "updatewal: incomplete or invalid image; keeping current wallpaper" >&2
+if [[ "$(systemctl --user show update-wallpaper.service -p MainPID --value)" != "$$" ]]; then
+    echo "Use: systemctl --user start --no-block update-wallpaper.service" >&2
     exit 1
 fi
 
-mv -f -- "$tmp_image" "$image_path"
+api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9"
+wallpaper_dir="$HOME/Pictures/wallpapers"
+image_path="$HOME/.cache/wallpaper.jpg"
+pool_size=24
 
-matugen image "$image_path" --source-color-index 0 -m light
+mkdir -p -- "$wallpaper_dir" "${image_path%/*}"
+work_dir=$(mktemp -d "$wallpaper_dir/.updatewal.XXXXXX")
+tmp_image=$(mktemp "${image_path}.XXXXXX")
+trap 'rm -f -- "$tmp_image"; rm -rf -- "$work_dir"' EXIT
+trap 'exit 1' HUP INT TERM
+applied=0
+consumed_name=""
+
+apply_image() {
+    local image=$1 errors
+    cp -- "$image" "$tmp_image"
+    if ! errors=$(magick "$tmp_image" null: 2>&1) || [[ -n "$errors" ]]; then
+        printf 'updatewal: invalid image; keeping source\n%s\n' "$errors" >&2
+        return 1
+    fi
+    mv -f -- "$tmp_image" "$image_path"
+    # Matugen can report a failed wallpaper command while returning exit status 0.
+    if ! errors=$(matugen image "$image_path" --source-color-index 0 -m light 2>&1) || [[ -n "$errors" ]]; then
+        printf 'updatewal: Matugen reported a problem; keeping source\n%s\n' "$errors" >&2
+        return 1
+    fi
+    rm -- "$image"
+    consumed_name=${image##*/}
+    applied=1
+    echo "updatewal: displayed and consumed $consumed_name"
+}
+
+# Consume the oldest queued image before doing any network work.
+mapfile -d '' -t images < <(
+    find "$wallpaper_dir" -maxdepth 1 -type f \
+        \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+        -printf '%T@ %p\0' | sort -z -n
+)
+pool_count=${#images[@]}
+if ((pool_count > 0)); then
+    apply_image "${images[0]#* }"
+    pool_count=$((pool_count - 1))
+fi
+if ((pool_count >= pool_size)); then exit 0; fi
+
+# Refill for at most five minutes; leave any remaining deficit for the next run.
+deadline=$((SECONDS + 300))
+fetch() {
+    local remaining=$((deadline - SECONDS))
+    ((remaining > 0)) || return 1
+    curl -fLsS --connect-timeout 5 --max-time "$((remaining < 60 ? remaining : 60))" "$@"
+}
+
+if ! first_page=$(fetch "$api_url") ||
+    ! last_page=$(jq -er '.meta.last_page | numbers | select(. > 0 and . == floor)' <<< "$first_page"); then
+    echo "updatewal: API unavailable; keeping current wallpaper and queue" >&2
+    exit 0
+fi
+
+for page in $(shuf -i "1-$last_page"); do
+    if ((SECONDS >= deadline)); then break; fi
+    if ((page == 1)); then
+        response=$first_page
+    elif ! response=$(fetch "${api_url}&page=$page"); then
+        continue
+    fi
+
+    while IFS= read -r image_url; do
+        if ((SECONDS >= deadline)); then break; fi
+        [[ "$image_url" == https://w.wallhaven.cc/full/* ]] || continue
+        name=${image_url##*/}
+        [[ "$name" =~ ^wallhaven-[a-z0-9]{6}\.(jpg|png)$ ]] || continue
+        image="$wallpaper_dir/$name"
+        [[ -e "$image" || "$name" == "$consumed_name" ]] && continue
+
+        if ! fetch --output "$work_dir/image" "$image_url"; then continue; fi
+        if ! errors=$(magick "$work_dir/image" null: 2>&1) || [[ -n "$errors" ]]; then
+            printf 'updatewal: skipped invalid %s\n%s\n' "$name" "$errors" >&2
+            continue
+        fi
+        mv -- "$work_dir/image" "$image"
+        pool_count=$((pool_count + 1))
+        echo "updatewal: queued $name ($pool_count/$pool_size)"
+
+        # With an empty queue, display the first valid download immediately.
+        if ((applied == 0)); then
+            apply_image "$image"
+            pool_count=$((pool_count - 1))
+        fi
+        if ((pool_count >= pool_size)); then exit 0; fi
+    done < <(jq -r '.data[].path' <<< "$response" | shuf)
+done
+echo "updatewal: queue contains $pool_count/$pool_size images; will refill next run"
