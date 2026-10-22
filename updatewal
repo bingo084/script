@@ -6,15 +6,17 @@ if [[ "$(systemctl --user show update-wallpaper.service -p MainPID --value)" != 
     exit 1
 fi
 
-api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9"
+api_url="https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=3M&order=desc&atleast=3840x2160&ratios=16x9&q=-%22video%20games%22"
 wallpaper_dir="$HOME/Pictures/wallpapers"
 image_path="$HOME/.cache/wallpaper.jpg"
+info_path="${image_path%/*}/wallpaper.json"
 pool_size=24
 
 mkdir -p -- "$wallpaper_dir" "${image_path%/*}"
 work_dir=$(mktemp -d "$wallpaper_dir/.updatewal.XXXXXX")
 tmp_image=$(mktemp "${image_path}.XXXXXX")
-trap 'rm -f -- "$tmp_image"; rm -rf -- "$work_dir"' EXIT
+tmp_info=$(mktemp "${info_path}.XXXXXX")
+trap 'rm -f -- "$tmp_image" "$tmp_info"; rm -rf -- "$work_dir"' EXIT
 trap 'exit 1' HUP INT TERM
 applied=0
 consumed_name=""
@@ -26,12 +28,20 @@ apply_image() {
         printf 'updatewal: invalid image; keeping source\n%s\n' "$errors" >&2
         return 1
     fi
+    if [[ "${image##*/}" =~ ^wallhaven-([a-z0-9]{6})\.(jpg|png)$ ]]; then
+        jq -n --arg id "${BASH_REMATCH[1]}" --arg filename "${image##*/}" \
+            '{id: $id, filename: $filename, url: ("https://wallhaven.cc/w/" + $id),
+              path: ("https://w.wallhaven.cc/full/" + $id[0:2] + "/" + $filename)}' > "$tmp_info"
+    else
+        jq -n --arg filename "${image##*/}" '{filename: $filename}' > "$tmp_info"
+    fi
     mv -f -- "$tmp_image" "$image_path"
     # Matugen can report a failed wallpaper command while returning exit status 0.
     if ! errors=$(matugen image "$image_path" --source-color-index 0 -m light 2>&1) || [[ -n "$errors" ]]; then
         printf 'updatewal: Matugen reported a problem; keeping source\n%s\n' "$errors" >&2
         return 1
     fi
+    mv -f -- "$tmp_info" "$info_path"
     rm -- "$image"
     consumed_name=${image##*/}
     applied=1
