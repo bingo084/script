@@ -24,9 +24,11 @@ consumed_name=""
 apply_image() {
     local image=$1 errors
     cp -- "$image" "$tmp_image"
-    if ! errors=$(magick "$tmp_image" null: 2>&1) || [[ -n "$errors" ]]; then
-        printf 'updatewal: invalid image; keeping source\n%s\n' "$errors" >&2
-        return 1
+    # Decode all pixels, but skip JPEG metadata that can contain malformed XML.
+    if ! errors=$(magick -define profile:skip=APP "$tmp_image" null: 2>&1) || [[ -n "$errors" ]]; then
+        rm -- "$image"
+        printf 'updatewal: deleted invalid %s\n%s\n' "${image##*/}" "$errors" >&2
+        return 0
     fi
     if [[ "${image##*/}" =~ ^wallhaven-([a-z0-9]{6})\.(jpg|png)$ ]]; then
         jq -n --arg id "${BASH_REMATCH[1]}" --arg filename "${image##*/}" \
@@ -48,17 +50,18 @@ apply_image() {
     echo "updatewal: displayed and consumed $consumed_name"
 }
 
-# Consume the oldest queued image before doing any network work.
+# Skip invalid images and consume the oldest usable image before any network work.
 mapfile -d '' -t images < <(
     find "$wallpaper_dir" -maxdepth 1 -type f \
         \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
         -printf '%T@ %p\0' | sort -z -n
 )
 pool_count=${#images[@]}
-if ((pool_count > 0)); then
-    apply_image "${images[0]#* }"
+for entry in "${images[@]}"; do
+    apply_image "${entry#* }"
     pool_count=$((pool_count - 1))
-fi
+    if ((applied)); then break; fi
+done
 if ((pool_count >= pool_size)); then exit 0; fi
 
 # Refill for at most five minutes; leave any remaining deficit for the next run.
@@ -92,7 +95,7 @@ for page in $(shuf -i "1-$last_page"); do
         [[ -e "$image" || "$name" == "$consumed_name" ]] && continue
 
         if ! fetch --output "$work_dir/image" "$image_url"; then continue; fi
-        if ! errors=$(magick "$work_dir/image" null: 2>&1) || [[ -n "$errors" ]]; then
+        if ! errors=$(magick -define profile:skip=APP "$work_dir/image" null: 2>&1) || [[ -n "$errors" ]]; then
             printf 'updatewal: skipped invalid %s\n%s\n' "$name" "$errors" >&2
             continue
         fi
